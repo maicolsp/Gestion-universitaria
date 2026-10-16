@@ -14,7 +14,27 @@
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
 </head>
-<body>
+<body class="locked">
+
+  <!-- Inicio de sesión obligatorio -->
+  <div id="loginScreen" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <form class="login-card" onsubmit="handleLogin(event)">
+      <div class="brand" style="margin-bottom: 1.5rem;"><span class="brand-icon">🎓</span><span>Sistema de Gestión Universitaria</span></div>
+      <h1 id="loginTitle" class="section-title">Iniciar sesión</h1>
+      <p class="section-desc" style="margin-bottom: 1.25rem;">Ingresa con tu correo institucional para continuar.</p>
+      <div class="form-group">
+        <label for="loginEmail">Correo institucional</label>
+        <input type="email" id="loginEmail" class="form-control" autocomplete="username" placeholder="usuario@universidad.edu" required>
+      </div>
+      <div class="form-group">
+        <label for="loginPass">Contraseña</label>
+        <input type="password" id="loginPass" class="form-control" autocomplete="current-password" required>
+      </div>
+      <p id="loginError" class="login-error" role="alert"></p>
+      <button type="submit" class="btn-submit">Entrar</button>
+      <p class="login-alt">¿No tienes cuenta? <button type="button" class="link-btn" onclick="toggleModal(true)">Crear cuenta</button></p>
+    </form>
+  </div>
 
   <!-- Navegación Superior -->
   <div class="top-bar">
@@ -25,6 +45,7 @@
 
     <nav class="nav-pill">
       <button type="button" class="nav-link active" data-tab="inicio" onclick="switchTab('inicio')">Inicio</button>
+      <button type="button" class="nav-link" data-tab="nosotros" onclick="switchTab('nosotros')">Nosotros</button>
       <button type="button" class="nav-link" data-tab="estudiantes" onclick="switchTab('estudiantes')">Estudiantes</button>
       <button type="button" class="nav-link" data-tab="universidades" onclick="switchTab('universidades')">Universidades</button>
       <button type="button" class="nav-link admin-only" data-admin data-tab="redes" onclick="switchTab('redes')">Redes</button>
@@ -34,13 +55,12 @@
     </nav>
 
     <div class="user-actions">
-      <button class="btn-register" onclick="toggleModal(true)">Registrarse</button>
       <button type="button" class="user-menu-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleUserMenu(event)">
         <span id="activeUserName">👤 Admin</span> ▾
       </button>
       <div class="user-dropdown" id="userDropdown">
-        <div class="dropdown-header">Cambiar cuenta</div>
-        <div id="usersList"></div>
+        <div class="dropdown-header" id="menuUserInfo">Sesión</div>
+        <button type="button" class="dropdown-item" onclick="logout()">Cerrar sesión</button>
       </div>
     </div>
   </div>
@@ -49,9 +69,15 @@
     
     <!-- INICIO -->
     <section id="inicio" class="tab-content active">
-      <div>
-        <h1 class="section-title">Portal de Infraestructura &amp; Administración</h1>
-        <p class="section-desc">Plataforma centralizada para la supervisión de red, nodos estudiantiles y recursos interuniversitarios.</p>
+      <div class="hero">
+        <span class="badge info">Red universitaria interconectada</span>
+        <h1 class="hero-title">Ocho universidades, una sola comunidad académica conectada</h1>
+        <p class="hero-text">Formamos profesionales, impulsamos la investigación y compartimos infraestructura de red segura entre todas nuestras sedes, para que estudiar y enseñar no dependa del lugar donde estés.</p>
+        <div class="hero-actions">
+          <button type="button" class="btn-submit hero-btn" onclick="switchTab('nosotros')">Conocer la institución</button>
+          <button type="button" class="btn-action" onclick="switchTab('estudiantes')">Ver estudiantes</button>
+        </div>
+        <div class="hero-stats" id="heroStats"></div>
       </div>
 
       <div class="grid-3">
@@ -116,6 +142,33 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- NOSOTROS -->
+    <section id="nosotros" class="tab-content">
+      <div>
+        <h1 class="section-title">Nosotros</h1>
+        <p class="section-desc">Nuestra misión, facultades, campus y lo que está pasando en la universidad.</p>
+      </div>
+      <div class="grid-3" id="valuesGrid"></div>
+
+      <h2 class="block-title">Facultades y programas</h2>
+      <div class="grid-3" id="facultiesGrid"></div>
+
+      <h2 class="block-title">Nuestros campus</h2>
+      <div class="grid-2" id="campusGrid"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title" style="margin-bottom: 1rem;">Noticias</h3>
+          <div id="newsList"></div>
+        </div>
+        <div class="card">
+          <h3 class="card-title" style="margin-bottom: 1rem;">Calendario académico</h3>
+          <ol class="timeline" id="calendarList"></ol>
+        </div>
+      </div>
+      <p class="sample-note">Contenido de ejemplo: reemplázalo con los datos reales de tu universidad.</p>
     </section>
 
     <!-- ESTUDIANTES -->
@@ -570,6 +623,10 @@
           <input type="email" id="regEmail" class="form-control" placeholder="usuario@universidad.edu" required>
         </div>
         <div class="form-group">
+          <label for="regPass">Contraseña (mínimo 8 caracteres)</label>
+          <input type="password" id="regPass" class="form-control" minlength="8" autocomplete="new-password" required>
+        </div>
+        <div class="form-group">
           <label for="regSede">Sede / Universidad</label>
           <select id="regSede" class="form-control">
             <option value="Universidad Central">Universidad Central</option>
@@ -610,6 +667,10 @@
         <div class="form-group">
           <label for="editEmail">Correo Institucional</label>
           <input type="email" id="editEmail" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="editPass">Nueva contraseña (opcional)</label>
+          <input type="password" id="editPass" class="form-control" minlength="8" autocomplete="new-password" placeholder="Déjala vacía para no cambiarla">
         </div>
         <div class="form-group">
           <label for="editSede">Sede / Universidad</label>

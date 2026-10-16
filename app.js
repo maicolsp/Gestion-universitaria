@@ -54,7 +54,7 @@ const asList = (v, seed) => (Array.isArray(v) && v.length ? v : structuredClone(
 let students = asList(store.get('app_students', null), SEED_STUDENTS);
 let vlans = asList(store.get('app_vlans', null), SEED_VLANS);
 let rules = Array.isArray(store.get('app_rules', null)) ? store.get('app_rules', []) : structuredClone(SEED_RULES);
-let activeId = store.get('active_user_id', null);
+let activeId = null;
 
 const isAdmin = u => !!u && u.role === 'Administrador';
 const RESTRICTED = ['redes', 'firewall', 'monitoreo', 'reportes'];
@@ -63,8 +63,85 @@ function denied() {
   toast('Acceso denegado: se requieren permisos de administrador.', 'err');
   return true;
 }
-const currentUser = () => students.find(s => s.id === activeId) || students.find(isAdmin) || students[0];
+const currentUser = () => students.find(s => s.id === activeId) || null;
 const saveStudents = () => store.set('app_students', students);
+
+/* ---------- Sesión y contraseñas ---------- */
+const DEFAULT_PW = 'Demo2026!'; // contraseña inicial de las cuentas que aún no tenían una
+const session = {
+  get() { try { return sessionStorage.getItem('session_user_id'); } catch { return null; } },
+  set(v) { try { v ? sessionStorage.setItem('session_user_id', v) : sessionStorage.removeItem('session_user_id'); } catch { /* sin sessionStorage */ } }
+};
+const toHex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const newSalt = () => toHex(crypto.getRandomValues(new Uint8Array(12)));
+function fallbackHash(s) { // solo si el navegador no ofrece crypto.subtle (páginas sin https)
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+}
+async function hashPw(pw, salt, algo = window.crypto?.subtle ? 'pb' : 'fb') {
+  if (algo === 'pb') {
+    if (!window.crypto?.subtle) throw new Error('sin crypto.subtle');
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 100000, hash: 'SHA-256' }, key, 256);
+    return `pb:${toHex(bits)}`;
+  }
+  return `fb:${fallbackHash(salt + pw)}`;
+}
+async function ensurePasswords() {
+  let changed = false;
+  for (const s of students) {
+    if (!s.pw) { s.salt = newSalt(); s.pw = await hashPw(DEFAULT_PW, s.salt); changed = true; }
+  }
+  if (changed) saveStudents();
+}
+const ready = ensurePasswords();
+
+let fails = 0, lockedUntil = 0;
+async function handleLogin(e) {
+  e.preventDefault();
+  const msg = $('#loginError');
+  const wait = lockedUntil - Date.now();
+  if (wait > 0) { msg.textContent = `Demasiados intentos. Espera ${Math.ceil(wait / 1000)} s.`; return; }
+  await ready;
+  const email = $('#loginEmail').value.trim().toLowerCase();
+  const user = students.find(s => s.email.toLowerCase() === email);
+  let ok = false;
+  try { ok = !!user && (await hashPw($('#loginPass').value, user.salt, user.pw.split(':')[0])) === user.pw; }
+  catch { msg.textContent = 'Este navegador no puede verificar contraseñas desde esta dirección. Abre la página con https o localhost.'; return; }
+  if (!ok) {
+    $('#loginPass').value = '';
+    if (++fails >= 5) { fails = 0; lockedUntil = Date.now() + 30000; msg.textContent = 'Demasiados intentos. Espera 30 s.'; }
+    else msg.textContent = 'Correo o contraseña incorrectos.';
+    return;
+  }
+  fails = 0;
+  msg.textContent = '';
+  e.target.reset();
+  startSession(user.id);
+}
+
+function startSession(id) {
+  activeId = id;
+  session.set(id);
+  document.body.classList.remove('locked');
+  renderStats(); renderVlans(); renderRules(); renderUserMenu(); updateActiveUserDisplay();
+  switchTab('inicio');
+  toast(`Bienvenido, ${currentUser().name}`);
+}
+
+function logout() {
+  activeId = null;
+  session.set(null);
+  toggleUserMenu(null, false);
+  $$('.modal-overlay.open').forEach(o => closeModal(o.id));
+  $('#studentsTableBody').innerHTML = '';
+  document.body.classList.add('locked');
+  history.replaceState(null, '', location.pathname + location.search);
+  $('#loginEmail').focus();
+}
 
 /* ---------- Contadores ---------- */
 const shown = {};
@@ -99,15 +176,13 @@ function switchTab(id) {
 
 /* ---------- Sesión y roles ---------- */
 function renderUserMenu() {
-  const cur = currentUser();
-  $('#usersList').innerHTML = students.map(s => `
-    <button type="button" class="dropdown-item ${s.id === cur.id ? 'active' : ''}" data-user="${esc(s.id)}">
-      <span>${esc(s.name)}</span><span class="role-tag">${esc(s.role)}</span>
-    </button>`).join('');
+  const u = currentUser();
+  if (u) $('#menuUserInfo').textContent = `${u.email} (${u.role})`;
 }
 
 function updateActiveUserDisplay() {
   const user = currentUser();
+  if (!user) return;
   $('#activeUserName').textContent = `👤 ${user.name}`;
   const admin = isAdmin(user);
   $$('[data-admin]').forEach(el => el.classList.toggle('admin-only', !admin));
@@ -122,15 +197,6 @@ function toggleUserMenu(e, force) {
   const open = force ?? !dd.classList.contains('show');
   dd.classList.toggle('show', open);
   $('.user-menu-btn').setAttribute('aria-expanded', open);
-}
-
-function selectUser(id) {
-  activeId = id;
-  store.set('active_user_id', id);
-  renderUserMenu();
-  updateActiveUserDisplay();
-  toggleUserMenu(null, false);
-  toast(`Sesión iniciada como ${currentUser().name}`);
 }
 
 /* ---------- Modales ---------- */
@@ -172,6 +238,7 @@ function filteredStudents() {
 }
 
 function filterTable() {
+  if (!currentUser()) { $('#studentsTableBody').innerHTML = ''; return; }
   const list = filteredStudents();
   const admin = isAdmin(currentUser());
   $('#studentsTableBody').innerHTML = list.length
@@ -193,6 +260,7 @@ function filterTable() {
 }
 
 function renderStats() {
+  renderHeroStats();
   const total = students.length || 1;
   setCounter('counter-estudiantes', students.length, 600);
   $('#onlinePct').textContent = `${Math.round(students.filter(s => s.status === 'En línea').length / total * 100)}%`;
@@ -229,12 +297,13 @@ function openEditModal(id) {
   $('#editSede').value = s.sede;
   $('#editRole').value = s.role;
   $('#editStatus').value = s.status;
+  $('#editPass').value = '';
   openModal('editModal');
 }
 
 const emailTaken = (email, exceptId) => students.some(s => s.id !== exceptId && s.email.toLowerCase() === email.toLowerCase());
 
-function handleEditSubmit(e) {
+async function handleEditSubmit(e) {
   e.preventDefault();
   if (denied()) return;
   const s = students.find(x => x.id === $('#editStudentId').value);
@@ -243,6 +312,12 @@ function handleEditSubmit(e) {
   if (emailTaken(email, s.id)) return toast('Ese correo ya está registrado.', 'err');
   if (isAdmin(s) && $('#editRole').value !== 'Administrador' && students.filter(isAdmin).length === 1)
     return toast('Debe quedar al menos un administrador.', 'err');
+  const np = $('#editPass').value;
+  if (np) {
+    if (np.length < 8) return toast('La contraseña debe tener al menos 8 caracteres.', 'err');
+    s.salt = newSalt();
+    s.pw = await hashPw(np, s.salt);
+  }
   Object.assign(s, {
     name: $('#editName').value.trim(), email,
     sede: $('#editSede').value, role: $('#editRole').value, status: $('#editStatus').value
@@ -270,23 +345,25 @@ function nextId(role) {
   return `${prefix}-${String(max + 1).padStart(4, '0')}`;
 }
 
-function handleRegister(e) {
+async function handleRegister(e) {
   e.preventDefault();
+  const form = e.target;
   const name = $('#regName').value.trim();
   const email = $('#regEmail').value.trim();
+  const pass = $('#regPass').value;
   if (!name || !email) return;
+  if (pass.length < 8) return toast('La contraseña debe tener al menos 8 caracteres.', 'err');
   if (emailTaken(email)) return toast('Ese correo ya está registrado.', 'err');
   const role = $('#regRole').value;
-  const user = { id: nextId(role), name, email, sede: $('#regSede').value, role, status: 'En línea' };
+  const salt = newSalt();
+  const user = { id: nextId(role), name, email, sede: $('#regSede').value, role, status: 'En línea', salt, pw: await hashPw(pass, salt) };
   students.push(user);
-  if (!addingForOthers) {
-    activeId = user.id;
-    store.set('active_user_id', activeId);
-  }
-  refreshStudents();
-  e.target.reset();
+  saveStudents();
+  const forOthers = addingForOthers;
+  form.reset();
   closeModal('registerModal');
-  toast(addingForOthers ? `${name} fue registrado` : `Cuenta creada. Sesión iniciada como ${name}`);
+  if (forOthers) { refreshStudents(); toast(`${name} fue registrado`); }
+  else startSession(user.id);
 }
 
 function csvCell(v) {
@@ -408,20 +485,76 @@ function generateReport(type) {
   toast(`Reporte "${type}" descargado`);
 }
 
+/* ---------- Contenido institucional (editable) ---------- */
+const VALUES = [
+  { icon: '🎯', name: 'Misión', text: 'Formar profesionales íntegros y críticos, y generar conocimiento que mejore la vida de nuestras comunidades.' },
+  { icon: '🔭', name: 'Visión', text: 'Ser en 2030 la red universitaria de referencia regional en calidad académica, investigación y conectividad.' },
+  { icon: '🤝', name: 'Valores', text: 'Excelencia, ética, inclusión, colaboración y compromiso con el entorno y la sostenibilidad.' }
+];
+const FACULTIES = [
+  { icon: '💻', name: 'Ingeniería y Tecnología', programs: 12, text: 'Redes, software, electrónica y ciberseguridad con laboratorios propios.' },
+  { icon: '🩺', name: 'Ciencias de la Salud', programs: 9, text: 'Medicina, enfermería y salud pública con práctica clínica temprana.' },
+  { icon: '📊', name: 'Ciencias Económicas', programs: 8, text: 'Administración, contaduría y economía con enfoque en emprendimiento.' },
+  { icon: '📚', name: 'Humanidades y Educación', programs: 10, text: 'Licenciaturas, derecho y comunicación para formar líderes sociales.' },
+  { icon: '🔬', name: 'Ciencias Básicas', programs: 7, text: 'Matemáticas, física, química y biología con centros de investigación.' },
+  { icon: '🎨', name: 'Artes y Diseño', programs: 6, text: 'Diseño, música y artes visuales con talleres y estudios abiertos.' }
+];
+const CAMPUS = [
+  { name: 'Universidad Central', tag: 'Campus principal', subnet: '10.10.0.0/16', link: '10 Gbps fibra', text: 'Sede de rectoría y administración, donde está el centro de datos principal.' },
+  { name: 'Universidad del Norte', tag: 'Ciencias e ingeniería', subnet: '10.20.0.0/16', link: '5 Gbps fibra', text: 'Laboratorios de ciencias, ingeniería y el centro de investigación aplicada.' },
+  { name: 'Universidad del Sur', tag: 'Humanidades y educación', subnet: '10.30.0.0/16', link: '2 Gbps radioenlace', text: 'Programas de educación, derecho y comunicación, con biblioteca regional.' },
+  { name: 'Universidad Tecnológica', tag: 'Innovación', subnet: '10.40.0.0/16', link: '5 Gbps fibra', text: 'Talleres técnicos, incubadora de empresas y laboratorio de redes.' }
+];
+const NEWS = [
+  { date: 'Oct 2026', title: 'Abiertas las inscripciones para el período 2027-1', text: 'Aspirantes de todas las sedes pueden postularse en línea hasta enero.' },
+  { date: 'Oct 2026', title: 'Nuevo laboratorio de redes y ciberseguridad', text: 'Estudiantes practican con equipos reales de enrutamiento y firewalls.' },
+  { date: 'Sep 2026', title: 'Convocatoria de semilleros de investigación', text: 'Abierta para estudiantes de segundo año en adelante, con apoyo docente.' }
+];
+const CALENDAR = [
+  { date: 'Nov 2026', title: 'Exámenes finales', text: 'Evaluaciones del segundo período en todas las sedes.' },
+  { date: 'Dic 2026', title: 'Cierre de notas y receso', text: 'Entrega de calificaciones y vacaciones de fin de año.' },
+  { date: 'Ene 2027', title: 'Inscripción de materias', text: 'Matrícula en línea para el período 2027-1.' },
+  { date: 'Feb 2027', title: 'Inicio de clases', text: 'Comienzo del primer período académico del año.' }
+];
+
+function renderInstitution() {
+  $('#valuesGrid').innerHTML = VALUES.map(v => `
+    <div class="card"><div class="icon-tile">${v.icon}</div>
+      <h3 class="card-title">${v.name}</h3><p class="card-copy">${v.text}</p></div>`).join('');
+  $('#facultiesGrid').innerHTML = FACULTIES.map(f => `
+    <div class="card"><div class="card-header"><div class="icon-tile">${f.icon}</div><span class="badge info">${f.programs} programas</span></div>
+      <h3 class="card-title">${f.name}</h3><p class="card-copy">${f.text}</p></div>`).join('');
+  $('#campusGrid').innerHTML = CAMPUS.map(c => `
+    <div class="card"><div class="card-header"><h3 class="card-title">${c.name}</h3><span class="badge purple">${c.tag}</span></div>
+      <p class="card-copy">${c.text}</p>
+      <p class="campus-meta">Enlace: ${c.link} | Subred: ${c.subnet}</p></div>`).join('');
+  $('#newsList').innerHTML = NEWS.map(n => `
+    <article class="news-item"><span class="news-date">${n.date}</span><h4>${n.title}</h4><p class="card-copy">${n.text}</p></article>`).join('');
+  $('#calendarList').innerHTML = CALENDAR.map(c => `
+    <li><span class="news-date">${c.date}</span><h4>${c.title}</h4><p class="card-copy">${c.text}</p></li>`).join('');
+}
+
+function renderHeroStats() {
+  const count = r => students.filter(s => s.role === r).length;
+  const stats = [[count('Estudiante'), 'Estudiantes'], [count('Docente'), 'Docentes'], [8, 'Universidades'], [FACULTIES.reduce((a, f) => a + f.programs, 0), 'Programas']];
+  $('#heroStats').innerHTML = stats.map(([n, l]) => `<div class="hero-stat"><span class="stat-number">${n.toLocaleString('es-CO')}</span><span class="stat-label">${l}</span></div>`).join('');
+}
+
 /* ---------- Inicio ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-  if (!students.some(s => s.id === activeId)) activeId = currentUser().id;
+  const saved = session.get();
+  activeId = students.some(s => s.id === saved) ? saved : null;
   saveStudents();
-  renderStats();
-  filterTable();
-  renderVlans();
-  renderRules();
-  renderUserMenu();
-  updateActiveUserDisplay();
   setCounter('counter-universidades', 8, 800);
-
-  const fromHash = location.hash.slice(1);
-  if (fromHash && fromHash !== 'inicio') switchTab(fromHash);
+  renderInstitution();
+  if (activeId) {
+    document.body.classList.remove('locked');
+    renderStats(); filterTable(); renderVlans(); renderRules(); renderUserMenu(); updateActiveUserDisplay();
+    const fromHash = location.hash.slice(1);
+    if (fromHash && fromHash !== 'inicio') switchTab(fromHash);
+  } else {
+    $('#loginEmail').focus();
+  }
 
   $('#studentsTableBody').addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -436,10 +569,6 @@ document.addEventListener('DOMContentLoaded', () => {
     store.set('app_rules', rules);
     renderRules();
   });
-  $('#usersList').addEventListener('click', e => {
-    const b = e.target.closest('[data-user]');
-    if (b) selectUser(b.dataset.user);
-  });
   $$('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); }));
   document.addEventListener('click', () => toggleUserMenu(null, false));
   document.addEventListener('keydown', e => {
@@ -447,5 +576,5 @@ document.addEventListener('DOMContentLoaded', () => {
     $$('.modal-overlay.open').forEach(o => closeModal(o.id));
     toggleUserMenu(null, false);
   });
-  window.addEventListener('hashchange', () => switchTab(location.hash.slice(1) || 'inicio'));
+  window.addEventListener('hashchange', () => { if (activeId) switchTab(location.hash.slice(1) || 'inicio'); });
 });
