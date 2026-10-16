@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Panel de gestión y monitoreo de red universitaria.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🎓</text></svg>">
+  <title>Sistema de Gestión y Monitoreo Universitario</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- Navegación Superior -->
+  <div class="top-bar">
+    <div class="brand">
+      <span class="brand-icon">🎓</span>
+      <span>Sistema de Gestión Universitaria</span>
+    </div>
+
+    <nav class="nav-pill">
+      <button type="button" class="nav-link active" data-tab="inicio" onclick="switchTab('inicio')">Inicio</button>
+      <button type="button" class="nav-link" data-tab="estudiantes" onclick="switchTab('estudiantes')">Estudiantes</button>
+      <button type="button" class="nav-link" data-tab="universidades" onclick="switchTab('universidades')">Universidades</button>
+      <button type="button" class="nav-link admin-only" data-admin data-tab="redes" onclick="switchTab('redes')">Redes</button>
+      <button type="button" class="nav-link admin-only" data-admin data-tab="firewall" onclick="switchTab('firewall')">🛡 Firewall</button>
+      <button type="button" class="nav-link admin-only" data-admin data-tab="monitoreo" onclick="switchTab('monitoreo')">Monitoreo</button>
+      <button type="button" class="nav-link admin-only" data-admin data-tab="reportes" onclick="switchTab('reportes')">Reportes</button>
+    </nav>
+
+    <div class="user-actions">
+      <button class="btn-register" onclick="toggleModal(true)">Registrarse</button>
+      <button type="button" class="user-menu-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleUserMenu(event)">
+        <span id="activeUserName">👤 Admin</span> ▾
+      </button>
+      <div class="user-dropdown" id="userDropdown">
+        <div class="dropdown-header">Cambiar cuenta</div>
+        <div id="usersList"></div>
+      </div>
+    </div>
+  </div>
+
+  <main class="container">
+    
+    <!-- INICIO -->
+    <section id="inicio" class="tab-content active">
+      <div>
+        <h1 class="section-title">Portal de Infraestructura &amp; Administración</h1>
+        <p class="section-desc">Plataforma centralizada para la supervisión de red, nodos estudiantiles y recursos interuniversitarios.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Tu cuenta</h3>
+            <span class="badge success">Sesión activa</span>
+          </div>
+          <p id="accountInfo" style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;"></p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Acceso Rápido</h3>
+            <span class="badge info">Plataforma</span>
+          </div>
+          <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+            Gestiona permisos de red, matrículas institucionales y estados de enlace entre sedes en tiempo real.
+          </p>
+          <button class="btn-action" onclick="switchTab('estudiantes')">Ver Estudiantes →</button>
+        </div>
+
+        <div class="card admin-only" data-admin>
+          <div class="card-header">
+            <h3 class="card-title">Topología de Red</h3>
+            <span class="badge success">Operativa</span>
+          </div>
+          <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+            Supervisa 8 universidades interconectadas con VLANs aisladas, redundancia BGP y control WAN.
+          </p>
+          <button class="btn-action" onclick="switchTab('redes')">Explorar Red →</button>
+        </div>
+
+        <div class="card admin-only" data-admin>
+          <div class="card-header">
+            <h3 class="card-title">Seguridad Firewall</h3>
+            <span class="badge danger">Control Activo</span>
+          </div>
+          <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+            Aplica Listas de Control de Acceso (ACLs) e inspección de puertos para bloquear IPs no autorizadas.
+          </p>
+          <button class="btn-action" onclick="switchTab('firewall')">Gestionar Firewall →</button>
+        </div>
+      </div>
+
+      <div class="grid-2 admin-only" data-admin>
+        <div class="card">
+          <h3 class="card-title" style="margin-bottom: 0.75rem;">Arquitectura AAA &amp; Seguridad VPN</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1rem;">
+            Implementación centralizada con modelo AAA (Autenticación, Autorización y Contabilidad) para conexiones IPsec / TLS sobre infraestructura Cisco ISR. Permite la restricción de acceso por rol y auditoría de sesiones.
+          </p>
+          <div class="badge success">RADIUS / TACACS+ Activo</div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title" style="margin-bottom: 0.75rem;">Estado Global de Infraestructura</h3>
+          <div class="metric-group">
+            <div class="metric-info"><span>Sedes Interconectadas (8/8)</span><span>100%</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 100%; background: var(--accent-success);"></div></div>
+            
+            <div class="metric-info"><span>Disponibilidad Servidores DNS / RADIUS</span><span>99.9%</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 99.9%; background: var(--accent-cyan);"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ESTUDIANTES -->
+    <section id="estudiantes" class="tab-content">
+      <div>
+        <h1 class="section-title">Gestión estudiantil y accesos</h1>
+        <p class="section-desc">Directorio de usuarios matriculados. Los cambios se guardan automáticamente en este navegador.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Matrículas Totales</h3>
+            <span class="badge success">Activas</span>
+          </div>
+          <div class="stats-row">
+            <div class="stat-box">
+              <span class="stat-number" id="counter-estudiantes">0</span>
+              <span class="stat-label">Registrados</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-box">
+              <span class="stat-number text-purple" id="onlinePct">0%</span>
+              <span class="stat-label">En línea ahora</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Distribución por Rol</h3>
+            <span class="badge info">Asignaciones</span>
+          </div>
+          <div class="metric-group" id="roleDistribution"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Políticas de Red</h3>
+            <span class="badge warning">QoS Activo</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-top: 0.5rem;">
+            Cada estudiante cuenta con un límite de tasa de <strong>50 Mbps de descarga</strong> y autenticación RADIUS 802.1X sobre la red institucional.
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Listado de Estudiantes Registrados</h3>
+          <button type="button" class="btn-action admin-only" data-admin onclick="newStudent()">+ Nuevo estudiante</button>
+        </div>
+
+        <div class="table-controls">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" aria-label="Buscar usuario" class="search-input" placeholder="Buscar por ID, nombre o correo..." oninput="filterTable()">
+          </div>
+
+          <div class="filters-group">
+            <select id="filterSede" aria-label="Filtrar por sede" class="filter-select" onchange="filterTable()">
+              <option value="all">Todas las Sedes</option>
+              <option value="Universidad del Norte">Universidad del Norte</option>
+              <option value="Universidad del Sur">Universidad del Sur</option>
+              <option value="Universidad Central">Universidad Central</option>
+              <option value="Universidad Tecnológica">Universidad Tecnológica</option>
+            </select>
+
+            <select id="filterRole" aria-label="Filtrar por rol o estado" class="filter-select" onchange="filterTable()">
+              <option value="all">Todos los Roles / Estados</option>
+              <option value="Estudiante">Estudiante</option>
+              <option value="Docente">Docente</option>
+              <option value="Administrador">Administrador</option>
+              <option value="En línea">En línea</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+
+            <button class="btn-reset" onclick="clearFilters()">🔄 Limpiar Filtros</button>
+            <button class="btn-export admin-only" data-admin onclick="exportFilteredCSV()">📥 Exportar CSV</button>
+          </div>
+
+          <div class="results-count" aria-live="polite" id="resultsCount">Mostrando 0 usuarios</div>
+        </div>
+
+        <div class="data-table-wrapper">
+          <table class="data-table" id="studentsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Correo Institucional</th>
+                <th>Sede / Universidad</th>
+                <th>Rol</th>
+                <th>Estado Conexión</th>
+                <th class="admin-only" data-admin>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="studentsTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- UNIVERSIDADES -->
+    <section id="universidades" class="tab-content">
+      <div>
+        <h1 class="section-title">Sedes Universitarias &amp; Enlaces WAN</h1>
+        <p class="section-desc">Monitoreo de estado de enlaces dedicados WAN, enrutamiento dinámico OSPF y latencia por sede.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Resumen de Nodos Regionales</h3>
+            <span class="badge success">8 Sedes Operativas</span>
+          </div>
+          <div class="stats-row" style="margin-bottom: 1.5rem;">
+            <div class="stat-box">
+              <span class="stat-number" id="counter-universidades">8</span>
+              <span class="stat-label">Sedes</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-box">
+              <span class="stat-number text-blue">10 Gbps</span>
+              <span class="stat-label">Enlace Core</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-box">
+              <span class="stat-number text-cyan">99.99%</span>
+              <span class="stat-label">SLA Uptime</span>
+            </div>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+            Conexiones de fibra óptica dedicadas con redundancia de rutas BGP/OSPF. Enfriamiento y respaldos de energía UPS activos en cada centro de distribución.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Diagnóstico de Enlace (Ping en Vivo)</h3>
+            <span class="badge info">Herramienta</span>
+          </div>
+          <div class="form-group" style="margin-top: 0.5rem;">
+            <label for="pingSelectSede">Seleccionar Sede a Diagnosticar</label>
+            <select id="pingSelectSede" class="form-control" style="margin-bottom: 0.75rem;">
+              <option value="10.10.0.1">Universidad Central (10.10.0.1)</option>
+              <option value="10.20.0.1">Universidad del Norte (10.20.0.1)</option>
+              <option value="10.30.0.1">Universidad del Sur (10.30.0.1)</option>
+              <option value="10.40.0.1">Universidad Tecnológica (10.40.0.1)</option>
+            </select>
+            <button class="btn-action" style="width: 100%;" id="pingBtn" onclick="runPingDiagnostic()">Ejecutar Ping Diagnóstico</button>
+          </div>
+          <div id="pingResult" style="font-family: monospace; font-size: 0.8rem; background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--card-border); color: var(--accent-cyan); display: none;">
+            Iniciando pruebas de conectividad ICMP...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Topología y Rango Subred por Sede</h3>
+          <input type="text" id="univSearchInput" aria-label="Buscar sede o IP" class="search-input" style="max-width: 280px;" placeholder="Buscar sede o IP..." oninput="filterUnivTable()">
+        </div>
+        <div class="data-table-wrapper">
+          <table class="data-table" id="univTable">
+            <thead>
+              <tr>
+                <th>Universidad / Sede</th>
+                <th>Rango IPv4 Subred</th>
+                <th>Router Concentrador</th>
+                <th>Enlace WAN</th>
+                <th>Latencia</th>
+                <th>Estado Routing</th>
+              </tr>
+            </thead>
+            <tbody id="univTableBody">
+              <tr>
+                <td>Universidad Central</td>
+                <td>10.10.0.0/16</td>
+                <td>Cisco ISR 4451</td>
+                <td>10 Gbps Fibra</td>
+                <td>2 ms</td>
+                <td><span class="badge success">OSPF Area 0</span></td>
+              </tr>
+              <tr>
+                <td>Universidad del Norte</td>
+                <td>10.20.0.0/16</td>
+                <td>Juniper MX204</td>
+                <td>5 Gbps Fibra</td>
+                <td>4 ms</td>
+                <td><span class="badge success">OSPF Area 0</span></td>
+              </tr>
+              <tr>
+                <td>Universidad del Sur</td>
+                <td>10.30.0.0/16</td>
+                <td>MikroTik CCR2116</td>
+                <td>2 Gbps Radioenlace</td>
+                <td>14 ms</td>
+                <td><span class="badge warning">Inestable (+10ms)</span></td>
+              </tr>
+              <tr>
+                <td>Universidad Tecnológica</td>
+                <td>10.40.0.0/16</td>
+                <td>Cisco ISR 4331</td>
+                <td>5 Gbps Fibra</td>
+                <td>3 ms</td>
+                <td><span class="badge success">OSPF Area 0</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- REDES -->
+    <section id="redes" class="tab-content">
+      <div>
+        <h1 class="section-title">Infraestructura Telemática &amp; VLANs</h1>
+        <p class="section-desc">Configuración de segmentos lógicos, switches distribuidos y asignación de ancho de banda.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Segmentación por VLAN</h3>
+            <span class="badge success">Standard 802.1Q</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+            Aislamiento estricto de paquetes broadcast para evitar tormentas de red y asegurar el tráfico administrativo frente a las redes públicas de estudiantes.
+          </p>
+          <div class="metric-group">
+            <div class="metric-info"><span>VLAN 10: Administración (10.10.10.0/24)</span><span>1 Gbps QoS</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 25%; background: var(--accent-purple);"></div></div>
+            <div class="metric-info"><span>VLAN 20: Estudiantes (10.10.20.0/20)</span><span>5 Gbps QoS</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 80%; background: var(--accent-cyan);"></div></div>
+            <div class="metric-info"><span>VLAN 30: Laboratorios (10.10.30.0/22)</span><span>2 Gbps QoS</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width: 45%; background: var(--accent-blue);"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Agregar Segmento VLAN</h3>
+            <span class="badge info">Configuración</span>
+          </div>
+          <form onsubmit="handleAddVlan(event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div>
+              <label style="font-size: 0.8rem; color: var(--text-muted);" for="vlanIdInput">ID VLAN (1-4094)</label>
+              <input type="number" id="vlanIdInput" class="form-control" placeholder="Ej. 40" min="1" max="4094" required>
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; color: var(--text-muted);" for="vlanNameInput">Nombre Segmento</label>
+              <input type="text" id="vlanNameInput" class="form-control" placeholder="Ej. Investigaciones" required>
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; color: var(--text-muted);" for="vlanSubnetInput">Subred Asignada</label>
+              <input type="text" id="vlanSubnetInput" class="form-control" placeholder="Ej. 10.10.40.0/24" required>
+            </div>
+            <button type="submit" class="btn-action" style="margin-top: 0.25rem;">+ Crear Segmento VLAN</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Equipos Switch &amp; Access Points Registrados</h3>
+        <div class="data-table-wrapper">
+          <table class="data-table" id="vlanTable">
+            <thead>
+              <tr>
+                <th>ID / Tag</th>
+                <th>Nombre Segmento / Dispositivo</th>
+                <th>Subred / Ubicación</th>
+                <th>Uso CPU / Ancho Banda</th>
+                <th>Estado Operativo</th>
+              </tr>
+            </thead>
+            <tbody id="vlanTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FIREWALL -->
+    <section id="firewall" class="tab-content">
+      <div>
+        <h1 class="section-title">🛡️ Seguridad &amp; Cortafuegos (Solo Administradores)</h1>
+        <p class="section-desc">Administración de Listas de Control de Acceso (ACLs) y filtrado de IP/puertos.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Agregar Regla ACL</h3>
+            <span class="badge danger">Regla de Red</span>
+          </div>
+          <form onsubmit="handleAddFirewallRule(event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; gap: 0.75rem;">
+              <div style="flex: 1;">
+                <label style="font-size: 0.8rem; color: var(--text-muted);" for="fwAction">Acción</label>
+                <select id="fwAction" class="form-control">
+                  <option value="PERMIT">PERMIT (Permitir)</option>
+                  <option value="DENY">DENY (Bloquear)</option>
+                </select>
+              </div>
+              <div style="flex: 1;">
+                <label style="font-size: 0.8rem; color: var(--text-muted);" for="fwProto">Protocolo</label>
+                <select id="fwProto" class="form-control">
+                  <option value="TCP">TCP</option>
+                  <option value="UDP">UDP</option>
+                  <option value="ICMP">ICMP</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; color: var(--text-muted);" for="fwSrc">Origen (IP/Subred)</label>
+              <input type="text" id="fwSrc" class="form-control" placeholder="10.10.20.0/24" required>
+            </div>
+            <div>
+              <label for="fwDst" style="font-size: 0.8rem; color: var(--text-muted);">Destino y puerto</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="fwDst" class="form-control" placeholder="192.168.10.50" required>
+                <input type="text" id="fwPort" aria-label="Puerto" class="form-control" style="max-width: 100px;" placeholder="80">
+              </div>
+            </div>
+            <button type="submit" class="btn-action" style="margin-top: 0.25rem;">+ Crear Regla de Firewall</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Lista de Reglas Activas</h3>
+            <span class="badge success">Stateful Inspection</span>
+          </div>
+          <div class="data-table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Acción</th>
+                  <th>Protocolo</th>
+                  <th>Origen</th>
+                  <th>Destino : Puerto</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="firewallRulesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MONITOREO -->
+    <section id="monitoreo" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+        <div>
+          <h1 class="section-title">Panel de Monitoreo General &amp; Telemetría</h1>
+          <p class="section-desc" style="margin-bottom: 0;">Métricas en tiempo real de rendimiento y salud de la red telemática.</p>
+        </div>
+        <div class="live-indicator">
+          <span class="pulse"></span>
+          <span>Sistema en línea</span>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Consumo de Banda Ancha</h3>
+            <span class="badge success">Descarga</span>
+          </div>
+          <div class="stat-number text-cyan" id="liveDownloadRate">6.8 Gbps</div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Capacidad máxima: 10 Gbps</span>
+          <div class="progress-bar" style="margin-top: 0.75rem;"><div class="progress-fill" id="dlFill" style="width: 68%; background: var(--accent-cyan);"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Carga de Subida</h3>
+            <span class="badge info">Upload</span>
+          </div>
+          <div class="stat-number text-blue" id="liveUploadRate">2.1 Gbps</div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Capacidad máxima: 10 Gbps</span>
+          <div class="progress-bar" style="margin-top: 0.75rem;"><div class="progress-fill" id="ulFill" style="width: 21%; background: var(--accent-blue);"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Test de Velocidad</h3>
+            <span class="badge purple">Diagnóstico</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Simular medición de velocidad y respuesta del concentrador.</p>
+          <button class="btn-action" style="width: 100%;" id="speedBtn" onclick="runSpeedtest()">🚀 Iniciar Speedtest</button>
+          <div id="speedtestResult" style="font-size: 0.8rem; color: var(--accent-cyan); margin-top: 0.5rem; display: none;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORTES -->
+    <section id="reportes" class="tab-content">
+      <div>
+        <h1 class="section-title">Generación de Reportes &amp; Auditoría</h1>
+        <p class="section-desc">Descarga de métricas de rendimiento e informes técnicos.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Reporte de Tráfico</h3>
+            <span class="badge info">TXT</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Consumo peak de ancho de banda por sedes.</p>
+          <button class="btn-action" onclick="generateReport('Tráfico Semanal')">Descargar Reporte</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Auditoría de Accesos</h3>
+            <span class="badge success">Logs</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Histórico de logins RADIUS y VPN.</p>
+          <button class="btn-action" onclick="generateReport('Auditoría de Accesos')">Descargar Logs</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Métricas de Usuarios</h3>
+            <span class="badge purple">Stats</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Desglose de datos consumidos por rol.</p>
+          <button class="btn-action" onclick="generateReport('Métricas de Usuarios')">Exportar Datos</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal de Registro -->
+  <div class="modal-overlay" id="registerModal">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="card-title">Registro de Usuario</h3>
+        <button type="button" class="close-modal" aria-label="Cerrar" onclick="toggleModal(false)">✕</button>
+      </div>
+      <form onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="regName">Nombre Completo</label>
+          <input type="text" id="regName" class="form-control" placeholder="Ej. Carlos Mendoza" required>
+        </div>
+        <div class="form-group">
+          <label for="regEmail">Correo Institucional</label>
+          <input type="email" id="regEmail" class="form-control" placeholder="usuario@universidad.edu" required>
+        </div>
+        <div class="form-group">
+          <label for="regSede">Sede / Universidad</label>
+          <select id="regSede" class="form-control">
+            <option value="Universidad Central">Universidad Central</option>
+            <option value="Universidad del Norte">Universidad del Norte</option>
+            <option value="Universidad del Sur">Universidad del Sur</option>
+            <option value="Universidad Tecnológica">Universidad Tecnológica</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="regRole">Rol asignado</label>
+          <select id="regRole" class="form-control">
+            <option value="Estudiante">Estudiante</option>
+            <option value="Docente">Docente</option>
+                      </select>
+        </div>
+        <button type="submit" class="btn-submit">Crear cuenta</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Edición -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 class="card-title">Editar Datos de Estudiante</h3>
+        <button type="button" class="close-modal" aria-label="Cerrar" onclick="toggleEditModal(false)">✕</button>
+      </div>
+      <form onsubmit="handleEditSubmit(event)">
+        <input type="hidden" id="editStudentIndex">
+        <div class="form-group">
+          <label for="editStudentId">ID Registro</label>
+          <input type="text" id="editStudentId" class="form-control" style="opacity: 0.6;" readonly>
+        </div>
+        <div class="form-group">
+          <label for="editName">Nombre Completo</label>
+          <input type="text" id="editName" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="editEmail">Correo Institucional</label>
+          <input type="email" id="editEmail" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="editSede">Sede / Universidad</label>
+          <select id="editSede" class="form-control">
+            <option value="Universidad Central">Universidad Central</option>
+            <option value="Universidad del Norte">Universidad del Norte</option>
+            <option value="Universidad del Sur">Universidad del Sur</option>
+            <option value="Universidad Tecnológica">Universidad Tecnológica</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="editRole">Rol asignado</label>
+          <select id="editRole" class="form-control">
+            <option value="Estudiante">Estudiante</option>
+            <option value="Docente">Docente</option>
+            <option value="Administrador">Administrador</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="editStatus">Estado de Conexión</label>
+          <select id="editStatus" class="form-control">
+            <option value="En línea">En línea</option>
+            <option value="Inactivo">Inactivo</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-submit">Guardar Cambios</button>
+      </form>
+    </div>
+  </div>
+
+
+  <div id="toasts" aria-live="polite"></div>
+</body>
+</html>
